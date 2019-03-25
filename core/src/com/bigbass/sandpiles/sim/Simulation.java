@@ -20,11 +20,11 @@ public class Simulation {
 	public Vector2 dim;
 
 	private Grid gridActive;
-	//private Grid gridTemp;
+	private Grid gridTemp;
 	
-	private final int TOPPLE_SIZE = 6;
+	private final int TOPPLE_SIZE = 4;
 	
-	private int stepsPerFrame = 5; // Decrease if FPS is too low. Controls the number of generations per frame
+	private int stepsPerFrame = 14; // Decrease if FPS is too low. Controls the number of generations per frame
 	
 	private int generations = 0;
 	private int renderFrames = 0;
@@ -38,11 +38,11 @@ public class Simulation {
 	private final Color TWO = new Color(0xFFA500FF);
 	private final Color THREE = new Color(0xFFFF00FF);*/
 
-	private final Color ZERO = (new Color(0x000000FF)).fromHsv(0, 0.85f, 0.85f);
-	private final Color ONE = (new Color(0x000000FF)).fromHsv(60, 0.85f, 0.85f);
-	private final Color TWO = (new Color(0x000000FF)).fromHsv(120, 0.85f, 0.85f);
-	private final Color THREE = (new Color(0x000000FF)).fromHsv(180, 0.85f, 0.85f);
-	private final Color FOURMORE = (new Color(0x000000FF)).fromHsv(240, 0.85f, 0.85f);
+	private final Color ZERO = (new Color(0x000000FF)).fromHsv(0, 0, 0);
+	private final Color ONE = (new Color(0x000000FF)).fromHsv(80, 0, 1.00f);
+	private final Color TWO = (new Color(0x000000FF)).fromHsv(160, 0, 0.75f);
+	private final Color THREE = (new Color(0x000000FF)).fromHsv(240, 0, 0.50f);
+	private final Color FOURMORE = (new Color(0x000000FF)).fromHsv(320, 0, 0.25f);
 
 	private SpriteBatch gifBatch;
 	private GifRecorder gifRecorder;
@@ -52,10 +52,10 @@ public class Simulation {
 		dim = new Vector2(width, height);
 		
 		gridActive = new Grid(x, y, (int) width, (int) height);
-		//gridTemp = new Grid(x, y, (int) width, (int) height);
+		gridTemp = new Grid(x, y, (int) width, (int) height);
 		
-		gridActive.cells[512 - 16][512 + 5].val = 200000;
-		gridActive.cells[512 + 16][512 - 5].val = 200000;
+		gridActive.cells[512][512] = 200000;
+		//gridActive.cells[512 + 16][512 - 5] = 200000;
 		
 		pool = ForkJoinPool.commonPool();
 
@@ -80,49 +80,24 @@ public class Simulation {
 		}
 		for(int z = 0; z < stepsPerFrame; z++){
 			
-			Grid nextGrid = new Grid(pos.x, pos.y, (int) dim.x, (int) dim.y);
-			
 			for (int i = 1; i < gridActive.cells.length - 1; i++) {
 				for (int j = 1; j < gridActive.cells[i].length - 1; j++) {
-					final float val = gridActive.cells[i][j].val;
-					Cell next = nextGrid.cells[i][j];
+					final float val = gridActive.cells[i][j];
 					
-					next.val = 0;
+					gridTemp.cells[i][j] = 0;
 					if(val < TOPPLE_SIZE){
-						next.val = val;
+						gridTemp.cells[i][j] = val;
 					}
 				}
 			}
-			UpdateWorld wu = new UpdateWorld(nextGrid, gridActive, 1, nextGrid.cells.length - 1, 1, nextGrid.cells[1].length - 1);
+			UpdateWorld wu = new UpdateWorld(gridTemp, gridActive, 1, gridTemp.cells.length - 1, 1, gridTemp.cells[1].length - 1);
 			pool.execute(wu);
 			wu.join();
 			
-/*
-				for (int i = 1; i < gridActive.cells.length - 1; i++) {
-					for (int j = 1; j < gridActive.cells[i].length - 1; j++) {
-						final float v = gridActive.cells[i][j].val;
-						Cell t = nextGrid.cells[i][j];
-						
-						if(v >= TOPPLE_SIZE){
-							t.val += v - TOPPLE_SIZE;
-							nextGrid.cells[i - 1][j].val += TOPPLE_SIZE / 4f;
-							nextGrid.cells[i + 1][j].val += TOPPLE_SIZE / 4f;
-							nextGrid.cells[i][j - 1].val += TOPPLE_SIZE / 4f;
-							nextGrid.cells[i][j + 1].val += TOPPLE_SIZE / 4f;
-						}
-					}
-				}*/
-			
-			
-			
 			// Copy gridTemp data into gridActive
-			/*Grid swap = gridActive;
+			Grid swap = gridActive;
 			gridActive = gridTemp;
-			gridTemp = swap;*/
-			
-			gridActive = nextGrid;
-			
-			//System.out.println(gridActive.cells[128][128].val);
+			gridTemp = swap;
 
 			generations += 1;
 			
@@ -131,8 +106,7 @@ public class Simulation {
 			if(isRendering && z == stepsPerFrame - 1){
 				for (int i = 1; i < gridActive.cells.length - 1; i++) {
 					for (int j = 1; j < gridActive.cells[i].length - 1; j++) {
-						Cell c = gridActive.cells[i][j];
-						final float val = c.val;
+						final float val = gridActive.cells[i][j];
 						
 						switch((int) val){
 						case 0:
@@ -215,15 +189,14 @@ public class Simulation {
 			} else {
 				for (int i = startx; i < endx; i++) {
 					for (int j = starty; j < endy; j++) {
-						final float v = gridActive.cells[i][j].val;
-						Cell t = nextGrid.cells[i][j];
+						final float v = gridActive.cells[i][j];
 						
 						if(v >= TOPPLE_SIZE){
-							t.val += v - TOPPLE_SIZE;
-							nextGrid.cells[i - 1][j].val += TOPPLE_SIZE / 4f;
-							nextGrid.cells[i + 1][j].val += TOPPLE_SIZE / 4f;
-							nextGrid.cells[i][j - 1].val += TOPPLE_SIZE / 4f;
-							nextGrid.cells[i][j + 1].val += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i][j] += v - TOPPLE_SIZE;
+							nextGrid.cells[i - 1][j] += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i + 1][j] += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i][j - 1] += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i][j + 1] += TOPPLE_SIZE / 4f;
 						}
 					}
 				}
