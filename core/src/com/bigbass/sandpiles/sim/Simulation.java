@@ -6,9 +6,13 @@ import java.util.concurrent.RecursiveAction;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType;
 import com.badlogic.gdx.math.Vector2;
+
+import io.anuke.gif.GifRecorder;
 
 public class Simulation {
 	
@@ -18,13 +22,30 @@ public class Simulation {
 	private Grid gridActive;
 	//private Grid gridTemp;
 	
-	private int stepsPerFrame = 8; // Decrease if FPS is too low. Controls the number of generations per frame
+	private final int TOPPLE_SIZE = 6;
+	
+	private int stepsPerFrame = 5; // Decrease if FPS is too low. Controls the number of generations per frame
 	
 	private int generations = 0;
+	private int renderFrames = 0;
 	
 	private boolean isRendering = false;
 	
 	private ForkJoinPool pool;
+	
+	/*private final Color ZERO = new Color(0x000000FF);
+	private final Color ONE = new Color(0xFF0000FF);
+	private final Color TWO = new Color(0xFFA500FF);
+	private final Color THREE = new Color(0xFFFF00FF);*/
+
+	private final Color ZERO = (new Color(0x000000FF)).fromHsv(0, 0.85f, 0.85f);
+	private final Color ONE = (new Color(0x000000FF)).fromHsv(60, 0.85f, 0.85f);
+	private final Color TWO = (new Color(0x000000FF)).fromHsv(120, 0.85f, 0.85f);
+	private final Color THREE = (new Color(0x000000FF)).fromHsv(180, 0.85f, 0.85f);
+	private final Color FOURMORE = (new Color(0x000000FF)).fromHsv(240, 0.85f, 0.85f);
+
+	private SpriteBatch gifBatch;
+	private GifRecorder gifRecorder;
 	
 	public Simulation(float x, float y, float width, float height){
 		pos = new Vector2(x, y);
@@ -33,89 +54,106 @@ public class Simulation {
 		gridActive = new Grid(x, y, (int) width, (int) height);
 		//gridTemp = new Grid(x, y, (int) width, (int) height);
 		
-		gridActive.cells[128][128].val = 100000;
-		//gridTemp.cells[128][128].val = 20;
+		gridActive.cells[512 - 16][512 + 5].val = 200000;
+		gridActive.cells[512 + 16][512 - 5].val = 200000;
 		
 		pool = ForkJoinPool.commonPool();
+
+		gifBatch = new SpriteBatch();
+		gifRecorder = new GifRecorder(gifBatch);
+		gifRecorder.open();
+		gifRecorder.setBounds(-width, -height + 42, (width * 2) - 1, (height * 2) - 84);
+		gifRecorder.setFPS(20);
+		//gifRecorder.startRecording(); // Remove this comment to try recording
+		gifRecorder.setRecordKey(-2);
 	}
 	
 	public void updateAndRender(ShapeRenderer sr, Camera cam){
 		isRendering = !Gdx.input.isKeyPressed(Keys.SPACE); // Disable rendering by holding SPACE
 		
 		if(isRendering){
-			sr.begin(ShapeType.Filled);
+			sr.begin(ShapeType.Line);
+			sr.setColor(0.4f, 0.4f, 0.4f, 1);
+			sr.rect(pos.x, pos.y, dim.x, dim.y);
+			
+			sr.set(ShapeType.Line);
 		}
 		for(int z = 0; z < stepsPerFrame; z++){
 			
-			if(Gdx.input.isKeyPressed(Keys.T) || Gdx.input.isKeyJustPressed(Keys.Y)){
-				Grid nextGrid = new Grid(pos.x, pos.y, (int) dim.x, (int) dim.y);
-				
-				for (int i = 1; i < gridActive.cells.length - 1; i++) {
-					for (int j = 1; j < gridActive.cells[i].length - 1; j++) {
-						final int val = gridActive.cells[i][j].val;
-						Cell next = nextGrid.cells[i][j];
-						
-						next.val = 0;
-						if(val < 4){
-							next.val = val;
-						}
+			Grid nextGrid = new Grid(pos.x, pos.y, (int) dim.x, (int) dim.y);
+			
+			for (int i = 1; i < gridActive.cells.length - 1; i++) {
+				for (int j = 1; j < gridActive.cells[i].length - 1; j++) {
+					final float val = gridActive.cells[i][j].val;
+					Cell next = nextGrid.cells[i][j];
+					
+					next.val = 0;
+					if(val < TOPPLE_SIZE){
+						next.val = val;
 					}
 				}
-				/*UpdateWorld wu = new UpdateWorld(gridTemp, gridActive, 1, gridTemp.cells.length - 1, 1, gridTemp.cells[1].length - 1);
-				pool.execute(wu);
-				wu.join();*/
-				
-
+			}
+			UpdateWorld wu = new UpdateWorld(nextGrid, gridActive, 1, nextGrid.cells.length - 1, 1, nextGrid.cells[1].length - 1);
+			pool.execute(wu);
+			wu.join();
+			
+/*
 				for (int i = 1; i < gridActive.cells.length - 1; i++) {
 					for (int j = 1; j < gridActive.cells[i].length - 1; j++) {
-						final int v = gridActive.cells[i][j].val;
+						final float v = gridActive.cells[i][j].val;
 						Cell t = nextGrid.cells[i][j];
 						
-						if(v >= 4){
-							t.val += v - 4;
-							nextGrid.cells[i - 1][j].val += 1;
-							nextGrid.cells[i + 1][j].val += 1;
-							nextGrid.cells[i][j - 1].val += 1;
-							nextGrid.cells[i][j + 1].val += 1;
+						if(v >= TOPPLE_SIZE){
+							t.val += v - TOPPLE_SIZE;
+							nextGrid.cells[i - 1][j].val += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i + 1][j].val += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i][j - 1].val += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i][j + 1].val += TOPPLE_SIZE / 4f;
 						}
 					}
-				}
-				
-				
-				
-				// Copy gridTemp data into gridActive
-				/*Grid swap = gridActive;
-				gridActive = gridTemp;
-				gridTemp = swap;*/
-				
-				gridActive = nextGrid;
-				
-				//System.out.println(gridActive.cells[128][128].val);
-
-				generations += 1;
-			}
+				}*/
 			
+			
+			
+			// Copy gridTemp data into gridActive
+			/*Grid swap = gridActive;
+			gridActive = gridTemp;
+			gridTemp = swap;*/
+			
+			gridActive = nextGrid;
+			
+			//System.out.println(gridActive.cells[128][128].val);
+
+			generations += 1;
+			
+			
+			// RENDER SECTION \\
 			if(isRendering && z == stepsPerFrame - 1){
 				for (int i = 1; i < gridActive.cells.length - 1; i++) {
 					for (int j = 1; j < gridActive.cells[i].length - 1; j++) {
 						Cell c = gridActive.cells[i][j];
-						final int val = c.val;
+						final float val = c.val;
 						
-						switch(val){
+						switch((int) val){
 						case 0:
-							sr.setColor(1, 1, 1, 1);
 							break;
 						case 1:
-							sr.setColor(0.7f, 0.7f, 0.7f, 1);
+							sr.setColor(ONE);
+							sr.point(gridActive.pos.x + i, gridActive.pos.y + j, 0);
 							break;
 						case 2:
-							sr.setColor(0.4f, 0.4f, 0.4f, 1);
+							sr.setColor(TWO);
+							sr.point(gridActive.pos.x + i, gridActive.pos.y + j, 0);
+							break;
+						case 3:
+							sr.setColor(THREE);
+							sr.point(gridActive.pos.x + i, gridActive.pos.y + j, 0);
 							break;
 						default:
-							sr.setColor(0.1f, 0.1f, 0.1f, 1);
+							sr.setColor(FOURMORE);
+							sr.point(gridActive.pos.x + i, gridActive.pos.y + j, 0);
 							break;
 						}
-						sr.rect(gridActive.pos.x + i, gridActive.pos.y + j, 1, 1);
 					}
 				}
 				
@@ -124,6 +162,18 @@ public class Simulation {
 		
 		if(isRendering){
 			sr.end();
+			
+			if(gifRecorder.isRecording() && renderFrames % 2 == 0){ // record new frame every n generations
+				//gifRecorder.setFPS(Gdx.graphics.getFramesPerSecond() < 15 ? 15 : Gdx.graphics.getFramesPerSecond() - 5);
+				gifRecorder.update();
+			}
+			
+			renderFrames += 1;
+		}
+		
+		if(gifRecorder.isRecording() && Gdx.input.isKeyPressed(Keys.L)){
+			gifRecorder.finishRecording();
+			gifRecorder.writeGIF();
 		}
 	}
 	
@@ -133,16 +183,16 @@ public class Simulation {
 	
 	@SuppressWarnings("serial")
 	private class UpdateWorld extends RecursiveAction {
-		private int threshold = 1000;
-		private Grid tmp;
+		private int threshold = 500;
+		private Grid nextGrid;
 		private Grid active;
 		private int startx;
 		private int endx;
 		private int starty;
 		private int endy;
 
-		public UpdateWorld(Grid tmp, Grid active, int startx, int endx, int starty, int endy) {
-			this.tmp = tmp;
+		public UpdateWorld(Grid nextGrid, Grid active, int startx, int endx, int starty, int endy) {
+			this.nextGrid = nextGrid;
 			this.active = active;
 			this.startx = startx;
 			this.endx = endx;
@@ -156,25 +206,24 @@ public class Simulation {
 				int xdiff = (endx - startx) / 2;
 				int ydiff = (endy - starty) / 2;
 
-				UpdateWorld uwA = new UpdateWorld(tmp, active, startx, startx + xdiff, starty, starty + ydiff);
-				UpdateWorld uwB = new UpdateWorld(tmp, active, startx + xdiff, endx, starty, starty + ydiff);
-				UpdateWorld uwC = new UpdateWorld(tmp, active, startx, startx + xdiff, starty + ydiff, endy);
-				UpdateWorld uwD = new UpdateWorld(tmp, active, startx + xdiff, endx, starty + ydiff, endy);
+				UpdateWorld uwA = new UpdateWorld(nextGrid, active, startx, startx + xdiff, starty, starty + ydiff);
+				UpdateWorld uwB = new UpdateWorld(nextGrid, active, startx + xdiff, endx, starty, starty + ydiff);
+				UpdateWorld uwC = new UpdateWorld(nextGrid, active, startx, startx + xdiff, starty + ydiff, endy);
+				UpdateWorld uwD = new UpdateWorld(nextGrid, active, startx + xdiff, endx, starty + ydiff, endy);
 
 				invokeAll(uwA, uwB, uwC, uwD);
 			} else {
 				for (int i = startx; i < endx; i++) {
 					for (int j = starty; j < endy; j++) {
-						Cell c = active.cells[i][j];
-						Cell t = tmp.cells[i][j];
+						final float v = gridActive.cells[i][j].val;
+						Cell t = nextGrid.cells[i][j];
 						
-						int v = c.val;
-						if(v >= 4){
-							t.val = v - 4;
-							tmp.cells[i - 1][j].val += 1;
-							tmp.cells[i + 1][j].val += 1;
-							tmp.cells[i][j - 1].val += 1;
-							tmp.cells[i][j + 1].val += 1;
+						if(v >= TOPPLE_SIZE){
+							t.val += v - TOPPLE_SIZE;
+							nextGrid.cells[i - 1][j].val += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i + 1][j].val += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i][j - 1].val += TOPPLE_SIZE / 4f;
+							nextGrid.cells[i][j + 1].val += TOPPLE_SIZE / 4f;
 						}
 					}
 				}

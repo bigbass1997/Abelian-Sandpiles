@@ -25,12 +25,12 @@ public class PrimaryPanel extends Panel {
 	
 	private Label infoLabel;
 	
-	private float scalar = 1;
+	private float scalar = 1f;
 	
 	public PrimaryPanel() {
 		super();
 		
-		final int SIZE = 256;
+		final int SIZE = 1024;
 		SIM = new Simulation(0, 0, SIZE, SIZE);
 		
 		cam = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -38,6 +38,15 @@ public class PrimaryPanel extends Panel {
 		cam.update();
 		
 		stage = new Stage();
+		
+		infoLabel = new Label("", SkinManager.getSkin("fonts/droid-sans-mono.ttf", 10));
+		infoLabel.setColor(Color.MAGENTA);
+		stage.addActor(infoLabel);
+		
+		sr = new ShapeRenderer(1048576);
+		sr.setAutoShapeType(true);
+		sr.setProjectionMatrix(cam.combined);
+
 		Main.inputMultiplexer.addProcessor(stage);
 		Main.inputMultiplexer.addProcessor(new ScrollwheelInputAdapter(){
 			@Override
@@ -50,14 +59,7 @@ public class PrimaryPanel extends Panel {
 				return true;
 			}
 		});
-		
-		infoLabel = new Label("", SkinManager.getSkin("fonts/droid-sans-mono.ttf", 10));
-		infoLabel.setColor(Color.MAGENTA);
-		stage.addActor(infoLabel);
-		
-		sr = new ShapeRenderer(1048576);
-		sr.setAutoShapeType(true);
-		sr.setProjectionMatrix(cam.combined);
+		changeCameraViewport(0);
 	}
 	
 	public void render() {
