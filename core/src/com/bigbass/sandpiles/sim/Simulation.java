@@ -54,7 +54,7 @@ public class Simulation {
 		gridActive = new Grid(x, y, (int) width, (int) height);
 		gridTemp = new Grid(x, y, (int) width, (int) height);
 		
-		gridActive.cells[512][512] = 200000;
+		gridActive.cells[512][512] = 1000000;
 		//gridActive.cells[512 + 16][512 - 5] = 200000;
 		
 		pool = ForkJoinPool.commonPool();
@@ -76,7 +76,7 @@ public class Simulation {
 			sr.setColor(0.4f, 0.4f, 0.4f, 1);
 			sr.rect(pos.x, pos.y, dim.x, dim.y);
 			
-			sr.set(ShapeType.Line);
+			sr.set(ShapeType.Point);
 		}
 		for(int z = 0; z < stepsPerFrame; z++){
 			
